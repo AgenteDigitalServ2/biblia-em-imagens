@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "GeneratedImage": {
+      "title": "GeneratedImage",
+      "description": "Uma imagem bíblica gerada por IA com metadados.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "passage": {
+          "type": "object",
+          "properties": {
+            "book": { "type": "string" },
+            "chapter": { "type": "number" },
+            "verse": { "type": "number" },
+            "text": { "type": "string" }
+          },
+          "required": ["book", "chapter", "verse"]
+        },
+        "prompt": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "isFavorite": { "type": "boolean" },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "hashtags": { "type": "array", "items": { "type": "string" } },
+            "shortCitation": { "type": "string" }
+          }
+        },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "passage", "prompt", "imageUrl", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/history/{imageId}": {
+      "schema": "GeneratedImage",
+      "description": "Histórico de imagens geradas pelo usuário."
+    }
+  }
+}
