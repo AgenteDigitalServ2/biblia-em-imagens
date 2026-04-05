@@ -8,7 +8,7 @@ if (!apiKey) {
 const ai = new GoogleGenAI({ apiKey });
 
 export async function generateVisualPrompt(passage: BiblePassage): Promise<{ text: string; visualPrompt: string }> {
-  const model = "gemini-3.1-pro-preview";
+  const model = "gemini-3-flash-preview";
   const prompt = `
     Extraia o texto bíblico de ${passage.book} ${passage.chapter}:${passage.verse} (em português).
     Em seguida, gere uma descrição visual rica de aproximadamente 500 caracteres para um modelo de geração de imagens.

@@ -15,6 +15,7 @@ export default function App() {
   const [currentImage, setCurrentImage] = useState<GeneratedImage | null>(null);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   // Load history from local storage
   useEffect(() => {
@@ -37,8 +38,9 @@ export default function App() {
   const WATERMARK_URL = "https://i.imgur.com/placeholder.png"; // Placeholder
 
   const handleGenerate = async () => {
+    setErrorStatus(null);
     if (!process.env.GEMINI_API_KEY) {
-      alert("Chave de API do Gemini não encontrada. Configure-a nas configurações do projeto.");
+      setErrorStatus("Chave de API não configurada no Vercel.");
       return;
     }
 
@@ -84,10 +86,12 @@ export default function App() {
     } catch (error: any) {
       console.error("Erro ao gerar imagem:", error);
       const errorMessage = error?.message || "Erro desconhecido";
-      if (errorMessage.includes("Quota exceeded")) {
-        alert("Cota da API excedida. Tente novamente mais tarde.");
+      if (errorMessage.includes("Quota exceeded") || errorMessage.includes("429")) {
+        setErrorStatus("Limite de uso atingido. Por favor, aguarde alguns minutos ou use uma chave de API paga.");
+      } else if (errorMessage.includes("API key not valid")) {
+        setErrorStatus("Chave de API inválida. Verifique as configurações no Vercel.");
       } else {
-        alert(`Erro ao gerar imagem: ${errorMessage}`);
+        setErrorStatus(`Erro: ${errorMessage}`);
       }
     } finally {
       setLoading(false);
@@ -247,23 +251,35 @@ export default function App() {
                   </div>
                 </div>
 
-                <button
-                  onClick={handleGenerate}
-                  disabled={loading}
-                  className="w-full bg-biblical-red hover:bg-red-900 disabled:bg-stone-300 text-parchment-50 font-display uppercase tracking-widest py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-biblical-red/20 active:scale-[0.98]"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Manifestando...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-5 h-5" />
-                      Gerar Visão
-                    </>
+                <div className="space-y-4">
+                  {errorStatus && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="bg-biblical-red/10 border border-biblical-red/20 p-4 rounded-xl text-biblical-red text-sm italic text-center"
+                    >
+                      {errorStatus}
+                    </motion.div>
                   )}
-                </button>
+
+                  <button
+                    onClick={handleGenerate}
+                    disabled={loading}
+                    className="w-full bg-biblical-red hover:bg-red-900 disabled:bg-stone-300 text-parchment-50 font-display uppercase tracking-widest py-4 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl shadow-biblical-red/20 active:scale-[0.98]"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Manifestando...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-5 h-5" />
+                        Gerar Visão
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
 
