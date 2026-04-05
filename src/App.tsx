@@ -39,8 +39,14 @@ export default function App() {
 
   const handleGenerate = async () => {
     setErrorStatus(null);
-    if (!process.env.GEMINI_API_KEY) {
-      setErrorStatus("Chave de API não configurada no Vercel.");
+    const key = process.env.GEMINI_API_KEY;
+    if (!key) {
+      setErrorStatus("Chave de API não configurada no Vercel. Adicione GEMINI_API_KEY às variáveis de ambiente.");
+      return;
+    }
+
+    if (!key.startsWith("AIza")) {
+      setErrorStatus("A chave de API parece estar no formato incorreto. Ela deve começar com 'AIza'.");
       return;
     }
 
@@ -52,12 +58,37 @@ export default function App() {
         verse,
       };
 
-      const { text, visualPrompt } = await generateVisualPrompt(passage);
-      const rawImageUrl = await generateImageFromPrompt(visualPrompt);
+      // Step 1: Generate Text and Visual Prompt
+      let textResult;
+      try {
+        textResult = await generateVisualPrompt(passage);
+      } catch (e: any) {
+        throw new Error(`Erro no texto: ${e.message || "Falha ao obter versículo"}`);
+      }
+
+      const { text, visualPrompt } = textResult;
+
+      // Small delay to avoid hitting rate limits between text and image generation
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Step 2: Generate Image
+      let rawImageUrl;
+      try {
+        rawImageUrl = await generateImageFromPrompt(visualPrompt);
+      } catch (e: any) {
+        throw new Error(`Erro na imagem: ${e.message || "Falha ao gerar arte"}`);
+      }
+
       const metadata = generateMetadata(passage, text);
       
-      // Overlay text and watermark on image
-      const imageUrl = await overlayTextOnImage(rawImageUrl, text, metadata.shortCitation, WATERMARK_URL);
+      // Step 3: Overlay Text
+      let imageUrl;
+      try {
+        imageUrl = await overlayTextOnImage(rawImageUrl, text, metadata.shortCitation, WATERMARK_URL);
+      } catch (e: any) {
+        console.warn("Falha no overlay, usando imagem pura:", e);
+        imageUrl = rawImageUrl;
+      }
 
       const id = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).substring(2);
       
@@ -86,10 +117,19 @@ export default function App() {
     } catch (error: any) {
       console.error("Erro ao gerar imagem:", error);
       const errorMessage = error?.message || "Erro desconhecido";
+      
       if (errorMessage.includes("Quota exceeded") || errorMessage.includes("429")) {
-        setErrorStatus("Limite de uso atingido. Por favor, aguarde alguns minutos ou use uma chave de API paga.");
+        if (errorMessage.includes("Erro no texto")) {
+          setErrorStatus("Limite de cota de texto atingido. Tente novamente em 1 minuto.");
+        } else if (errorMessage.includes("Erro na imagem")) {
+          setErrorStatus("Limite de cota de imagem atingido. O Google limita a geração de imagens no plano gratuito. Tente novamente mais tarde ou ative o faturamento (Pay-as-you-go) no Google AI Studio.");
+        } else {
+          setErrorStatus("Limite de uso atingido. Por favor, aguarde alguns minutos.");
+        }
       } else if (errorMessage.includes("API key not valid")) {
-        setErrorStatus("Chave de API inválida. Verifique as configurações no Vercel.");
+        setErrorStatus("Chave de API inválida. Verifique se a chave no Vercel está correta.");
+      } else if (errorMessage.includes("Safety") || errorMessage.includes("blocked")) {
+        setErrorStatus("O conteúdo foi bloqueado pelos filtros de segurança da IA. Tente outro versículo.");
       } else {
         setErrorStatus(`Erro: ${errorMessage}`);
       }
@@ -256,9 +296,15 @@ export default function App() {
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
-                      className="bg-biblical-red/10 border border-biblical-red/20 p-4 rounded-xl text-biblical-red text-sm italic text-center"
+                      className="bg-biblical-red/10 border border-biblical-red/20 p-4 rounded-xl text-biblical-red text-sm italic text-center flex flex-col items-center gap-2"
                     >
-                      {errorStatus}
+                      <span>{errorStatus}</span>
+                      <button 
+                        onClick={() => setErrorStatus(null)}
+                        className="text-[10px] uppercase tracking-widest font-display hover:underline"
+                      >
+                        Limpar Aviso
+                      </button>
                     </motion.div>
                   )}
 

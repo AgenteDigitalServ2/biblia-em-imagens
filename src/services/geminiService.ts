@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { BiblePassage } from "../types";
 
 const apiKey = process.env.GEMINI_API_KEY || "";
@@ -8,7 +8,9 @@ if (!apiKey) {
 const ai = new GoogleGenAI({ apiKey });
 
 export async function generateVisualPrompt(passage: BiblePassage): Promise<{ text: string; visualPrompt: string }> {
+  if (!apiKey) throw new Error("Chave de API não configurada.");
   const model = "gemini-3-flash-preview";
+  console.log(`Gerando prompt visual com ${model}...`);
   const prompt = `
     Extraia o texto bíblico de ${passage.book} ${passage.chapter}:${passage.verse} (em português).
     Em seguida, gere uma descrição visual rica de aproximadamente 500 caracteres para um modelo de geração de imagens.
@@ -28,6 +30,7 @@ export async function generateVisualPrompt(passage: BiblePassage): Promise<{ tex
     model,
     contents: prompt,
     config: {
+      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -48,7 +51,9 @@ export async function generateVisualPrompt(passage: BiblePassage): Promise<{ tex
 }
 
 export async function generateImageFromPrompt(visualPrompt: string): Promise<string> {
+  if (!apiKey) throw new Error("Chave de API não configurada.");
   const model = "gemini-2.5-flash-image";
+  console.log(`Gerando imagem com ${model}...`);
   const response = await ai.models.generateContent({
     model,
     contents: {
