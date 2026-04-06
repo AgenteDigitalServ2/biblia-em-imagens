@@ -50,29 +50,44 @@ export async function generateVisualPrompt(passage: BiblePassage): Promise<{ tex
   };
 }
 
-export async function generateImageFromPrompt(visualPrompt: string): Promise<string> {
+export async function generateImageFromPrompt(visualPrompt: string, retries = 2): Promise<string> {
   if (!apiKey) throw new Error("Chave de API não configurada.");
   const model = "gemini-2.5-flash-image";
-  console.log(`Gerando imagem com ${model}...`);
-  const response = await ai.models.generateContent({
-    model,
-    contents: {
-      parts: [{ text: visualPrompt }],
-    },
-    config: {
-      imageConfig: {
-        aspectRatio: "9:16",
-      },
-    },
-  });
+  
+  for (let i = 0; i <= retries; i++) {
+    try {
+      console.log(`Tentativa ${i + 1} de gerar imagem com ${model}...`);
+      const response = await ai.models.generateContent({
+        model,
+        contents: {
+          parts: [{ text: visualPrompt }],
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: "9:16",
+          },
+        },
+      });
 
-  for (const part of response.candidates?.[0]?.content?.parts || []) {
-    if (part.inlineData) {
-      return `data:image/png;base64,${part.inlineData.data}`;
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          return `data:image/png;base64,${part.inlineData.data}`;
+        }
+      }
+    } catch (error: any) {
+      const isQuotaError = error.message?.includes("429") || error.message?.includes("Quota") || error.message?.includes("limit");
+      
+      if (isQuotaError && i < retries) {
+        const delay = Math.pow(2, i) * 2000; // 2s, 4s delay
+        console.warn(`Limite atingido. Tentando novamente em ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
     }
   }
 
-  throw new Error("Não foi possível gerar a imagem.");
+  throw new Error("Não foi possível gerar a imagem após várias tentativas.");
 }
 
 export function generateMetadata(passage: BiblePassage, text: string) {
